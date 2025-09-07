@@ -10,5 +10,20 @@ typedef struct ConfItem{
 
 }CConfItem,*LPCConfItem;
 
+typedef struct{
+    int level;  //日志级别
+    int fd;     //日志文件描述符
+} zhy_log_t;
 
+extern char** g_os_argv;         // main 函数参数 argv
+extern int g_os_argc;            // 启动参数个数
+extern size_t g_envneedmem;      // 相关环境变量总大小
+extern size_t g_argvneedmem;      // 启动参数内存大小
+extern char* gp_envmem;          // 环境变量内存新位置
+extern int g_daemonize;          // 是否开启守护进程
+
+
+extern pid_t zhy_pid;         // 当前进程 id
+extern pid_t zhy_parent;
+extern zhy_log_t zhy_log;     //日志相关信息
 #endif

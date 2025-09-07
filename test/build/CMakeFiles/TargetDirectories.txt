@@ -1,0 +1,3 @@
+/home/zhy/MyProject/zhy-cpp-comm/test/build/CMakeFiles/zhy_test.dir
+/home/zhy/MyProject/zhy-cpp-comm/test/build/CMakeFiles/edit_cache.dir
+/home/zhy/MyProject/zhy-cpp-comm/test/build/CMakeFiles/rebuild_cache.dir

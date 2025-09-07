@@ -1,37 +1,66 @@
-# 定义编译器和编译选项
-CXX = g++
-CXXFLAGS = -g -Wall -I../include
+# test目录的Makefile
 
-# 获取构建根目录
-BUILD_ROOT = $(shell cd ../ && pwd)
+# 设置构建根目录
+BUILD_ROOT := $(shell cd ../ && pwd)
 
-# 源文件和目标文件
-SRCS = test_conf.cpp ../app/zhy_conf.cpp ../app/zhy_func.cpp
+# 包含项目配置
+include $(BUILD_ROOT)/config.mk
+include $(BUILD_ROOT)/common.mk
+
+# 目标可执行文件名
+BIN = test_conf
+
+# 源文件
+SRCS = test_conf.cpp
+
+# 目标文件
 OBJS = $(SRCS:.cpp=.o)
-TARGET = test_conf
 
-# 主目标
-all: $(TARGET)
+# 依赖文件
+DEPS = $(SRCS:.cpp=.d)
 
-# 链接目标文件
-$(TARGET): $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $^ -std=c++11
+# 头文件路径
+INCLUDE_PATH = $(INCLUDE_ROOT)
 
-# 编译源文件为目标文件
+# 编译选项
+CXXFLAGS = -std=c++11 -g -I$(INCLUDE_PATH)
+
+# 链接选项
+LDFLAGS = -lpthread
+
+# 链接对象文件
+LINK_OBJ = $(wildcard $(LINK_OBJ_DIR)/*.o)
+
+all: $(DEPS) $(OBJS) $(BIN)
+
+# 包含依赖文件
+-include $(DEPS)
+
+# 生成可执行文件
+$(BIN): $(OBJS) $(LINK_OBJ)
+	@echo "Building $@..."
+	$(CC) -o $@ $^ $(LDFLAGS)
+
+# 编译源文件
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@ -std=c++11
+	@echo "Compiling $<..."
+	$(CC) $(CXXFLAGS) -o $@ -c $<
 
-# 运行测试
-run:
-	./$(TARGET)
+# 生成依赖文件
+%.d: %.cpp
+	@echo "Generating dependencies for $<..."
+	@g++ $(CXXFLAGS) -MM $< > $@.$$$$; \ 
+	sed 's,\($*\)\.o[ :]*,$(LINK_OBJ_DIR)/\1.o $@ : ,g' < $@.$$$$ > $@; \ 
+	rm -f $@.$$$$
 
-# 使用gdb调试
-debug:
-	gdb ./$(TARGET)
+# 运行程序
+run: $(BIN)
+	./$(BIN)
 
 # 清理生成的文件
 clean:
-	rm -f $(OBJS) $(TARGET)
+	@echo "Cleaning up..."
+	rm -f $(OBJS) $(DEPS) $(BIN) *.d.*
 
-# 伪目标
-.PHONY: all clean run debug
+# 声明伪目标
+.PHONY: all clean run
