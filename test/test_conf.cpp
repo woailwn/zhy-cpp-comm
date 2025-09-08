@@ -3,7 +3,7 @@
 
 #include "zhy_func.h"
 #include "zhy_conf.h"
-//²âÊÔÅäÖÃ
+//
 void test_conf(){
     CConfig::getInstance()->Load("../zhy_nginx.conf");
     printf("ListenPort=%d\n",CConfig::getInstance()->GetIntDefault("ListenPort",1000));
@@ -12,40 +12,40 @@ void test_conf(){
     printf("ProcName=%s\n",CConfig::getInstance()->GetString("ProcName"));
 }
 
-//²âÊÔ»·¾³±äÁ¿µØÖ·
+//??
 
-//ÈÕÖ¾²âÊÔ
+//?
 void test_log(){
     CConfig* p_config=CConfig::getInstance();
     if(p_config->Load("../zhy_nginx.conf")==false){
-        zhy_log_stderr(0,"ÅäÖÃÎÄ¼ş[%s]ÔØÈëÊ§°Ü!");
+        zhy_log_stderr(0,"?[%s]?!");
         return;
     }
     
-    // ³õÊ¼»¯ÈÕÖ¾ÏµÍ³
+    // ????
     zhy_log_init();
     
-    // Ğ´ÈëÒ»Ìõ²âÊÔÈÕÖ¾
-    zhy_log_stderr(0,"ÈÕÖ¾ÏµÍ³³õÊ¼»¯³É¹¦£¬²âÊÔÈÕÖ¾Êä³ö!");
+    // ???
+    zhy_log_stderr(0,"??????!");
 }
 void test_environ(){
     for(int i=0;environ[i];i++){
-        printf("environ[%d]µØÖ·=%x",i,(unsigned int)((unsigned long)environ[i]));
-        printf("environ[%d]ÄÚÈİ=%s\n",i,environ[i]);
+        printf("environ[%d]?=%x",i,(unsigned int)((unsigned long)environ[i]));
+        printf("environ[%d]=%s\n",i,environ[i]);
     }
     printf("------------------------------------");
     zhy_init_setproctitle();
     for(int i=0;environ[i];i++){
-        printf("environ[%d]µØÖ·=%x",i,(unsigned int)((unsigned long)environ[i]));
-        printf("environ[%d]ÄÚÈİ=%s\n",i,environ[i]);
+        printf("environ[%d]?=%x",i,(unsigned int)((unsigned long)environ[i]));
+        printf("environ[%d]=%s\n",i,environ[i]);
     }
 }
 
 int main(){
-    // ³õÊ¼»¯ÈÕÖ¾ÏµÍ³
+    // ????
     test_log();
     
-    // ÆäËû²âÊÔº¯Êı¿ÉÒÔÔÚÕâÀïµ÷ÓÃ
+    // ?
     // test_conf();
     // test_environ();
 }

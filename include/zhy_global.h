@@ -24,6 +24,8 @@ extern int g_daemonize;          // 是否开启守护进程
 
 
 extern pid_t zhy_pid;         // 当前进程 id
-extern pid_t zhy_parent;
-extern zhy_log_t zhy_log;     //日志相关信息
+extern pid_t zhy_parent;      // 当前进程父进程id
+extern zhy_log_t zhy_log;     // 日志相关信息
+extern int zhy_process;       // 标识进程类型
+extern sig_atomic_t zhy_reap; // 标识子进程状态变化
 #endif

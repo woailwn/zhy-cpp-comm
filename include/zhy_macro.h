@@ -24,4 +24,8 @@
 
 //默认存放日志级别的路径
 #define ZHY_ERROR_LOG_PATH "error.log"
+
+// 当前进程类型
+#define ZHY_PROCESS_MASTER 0 // master 进程，管理进程
+#define ZHY_PROCESS_WORKER 1 // worker 进程，工作进程
 #endif
