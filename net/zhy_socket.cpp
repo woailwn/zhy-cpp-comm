@@ -115,7 +115,7 @@ int CSocket::zhy_epoll_init(){
 
     //连接池
     this->initConnection();
-    
+
     //监听socket绑定一个连接池对象
     std::vector<lpzhy_listening_t>::iterator pos;
     for(pos=m_ListenSocketList.begin();pos!=m_ListenSocketList.end();pos++){
@@ -128,7 +128,6 @@ int CSocket::zhy_epoll_init(){
         (*pos)->connection=p_Conn;      //监听对象和连接对象关联，方便通过监听对象找连接对象
 
         //监听读写事件...
-        //TODO
         p_Conn->rhandler=&CSocket::zhy_event_accept;
 
         //监听事件
@@ -168,4 +167,85 @@ int CSocket::zhy_epoll_oper_event(int fd,uint32_t eventtype,uint32_t flag,int bc
             return -1;
     }
     return 1;
+}
+
+//获取发生的事件消息
+int CSocket::zhy_epoll_process_events(int timer){
+    /*
+        timer:
+            -1 一直阻塞
+            0  立即返回
+
+        return
+            -1 错误
+            0  发生超时
+            >0 捕获到的事件数量
+    */
+    int events=epoll_wait(m_epollhandle,m_events,ZHY_MAX_EVENTS,timer);
+
+    if(events==-1){
+        if(errno==EINTR){   //信号导致
+            zhy_log_error_core(ZHY_LOG_INFO,errno, "CSocket::hps_epoll_process_events()中epoll_wait()失败!");
+            return 1;
+        }else{
+            zhy_log_error_core(ZHY_LOG_ALERT,errno, "CSocket::hps_epoll_process_events()中epoll_wait()失败!");
+            return 0;
+        }
+    }
+
+    if(events==0){
+        if(timer!=-1){
+            return 1;           //阻塞时间到
+        }
+        zhy_log_error_core(ZHY_LOG_ALERT,0,"CSocket::hps_epoll_process_events()中epoll_wait()没超时却没返回任何事件!");
+        return 0;
+    }
+
+    lpzhy_connection_t p_Conn;
+    uint32_t revents;
+
+    for(int i=0;i<events;i++){
+        p_Conn=(lpzhy_connection_t)(m_events[i].data.ptr);
+
+
+        //过滤过期时间
+        if(p_Conn->fd==-1){
+            zhy_log_error_core(ZHY_LOG_DEBUG, 0, "CSocket::zhy_epoll_process_events()中遇到了fd=-1的过期事件:%p.",
+            p_Conn); continue;
+        }
+        
+        revents=m_events[i].events;
+        if(revents & EPOLLIN){
+            (this->*(p_Conn->rhandler))(p_Conn);
+        }
+
+        if(revents & EPOLLOUT){
+            if(revents & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)){
+                /*
+                    EPOLLERR:连接错误
+                    EPOLLHUP:连接被挂起
+                    EPOLLRDHUP:TCP连接远端关闭或半关闭连接
+                */
+                --p_Conn->iThrowsendCount;
+            }else{
+                //数据没有发送完毕
+                (this->*(p_Conn->whandler))(p_Conn);
+            }
+        }
+    }
+}
+
+void CSocket::sendMsg(char* sendbuf){
+    
+}
+
+void CSocket::ClosesocketProc(lpzhy_connection_t p_Conn){
+    if(p_Conn->fd!=-1){
+        close(p_Conn->fd);
+        p_Conn->fd=-1;
+    }
+    if(p_Conn->iThrowsendCount>0)
+        --p_Conn->iThrowsendCount;
+    
+    return;
 }

@@ -11,6 +11,7 @@
 #include "zhy_func.h"
 #include "zhy_global.h"
 #include "zhy_macro.h"
+#include "zhy_threadpool.h"
 char** g_os_argv;         // 原始命令行参数数组
 int g_os_argc;            // 启动参数个数
 size_t g_argvneedmem = 0; // 启动参数内存大小
@@ -21,8 +22,10 @@ pid_t zhy_pid;            //子进程id
 pid_t zhy_parent;         //父进程id
 int g_daemonize=0;        //是否以守护进程方式运行
 int zhy_process;      // 进程类型
-sig_atomic_t hps_reap;    //标识子进程状态变化
 
+CThreadPool g_threadpool;   //线程池
+
+sig_atomic_t hps_reap;    //标识子进程状态变化
 int main(int argc,char* argv[]){
     int exit_code=0; //0正常 1 -1 异常 2 找不到文件
 
