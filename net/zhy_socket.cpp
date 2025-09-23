@@ -17,6 +17,112 @@
 #include "zhy_global.h"
 #include "zhy_macro.h"
 #include "zhy_memory.h"
+#include "zhy_lockmutex.h"
+
+CSocket::CSocket(){
+    m_worker_connections=1;     //epoll_init
+    m_ListenPortCount=1;        //监听
+    m_RecyConnectionWaitTime=60;    //待回收连接需要延迟60s回收
+
+    m_epollhandle=-1;
+
+    m_iLenPkgHeader=sizeof(COMM_PKG_HEADER);
+    m_iLenMsgHeader=sizeof(STRUC_MSG_HEADER);
+
+    m_iSendMsgQueueCount=0;
+    m_total_recyconnection_n=0;
+
+    m_onlineUserCount=0;
+    return;
+}
+
+CSocket::~CSocket(){
+    for(auto* p_zhy_listen:m_ListenSocketList){
+        delete p_zhy_listen;
+    }
+    std::vector<lpzhy_listening_t>().swap(m_ListenSocketList);
+    return;
+}
+
+bool CSocket::Initialize(){
+    ReadConf();
+    return zhy_open_listening_sockets();
+}
+
+bool CSocket::Initialize_subproc(){
+    // 发消息互斥量初始化
+    if (pthread_mutex_init(&m_sendMessageQueueMutex, NULL) != 0) {
+        zhy_log_stderr(0, "CSocket::Initialize()中pthread_mutex_init(&m_sendMessageQueueMutex)失败.");
+        return false;
+    }
+
+    // 连接相关互斥量初始化
+    if (pthread_mutex_init(&m_connectionMutex, NULL) != 0) {
+        zhy_log_stderr(0, "CSocket::Initialize()中pthread_mutex_init(&m_connectionMutex)失败.");
+        return false;
+    }
+
+    // 连接回收队列相关互斥量初始化
+    if (pthread_mutex_init(&m_recyconnqueueMutex, NULL) != 0) {
+        zhy_log_stderr(0, "CSocket::Initialize()中pthread_mutex_init(&m_recyconnqueueMutex)失败.");
+        return false;
+    }
+
+    if (sem_init(&m_semEventSendQueue, 0, 0) == -1) {
+        zhy_log_stderr(0, "CSocket::Initialize()中sem_init(&m_semEventSendQueue,0,0)失败.");
+        return false;
+    }
+
+    //创建发送线程和回收线程
+    int err;
+    ThreadItem* pRecyconn;
+    m_threadVector.push_back(pRecyconn=new ThreadItem(this));
+    err=pthread_create(&pRecyconn->_Handle,NULL,ServerRecyConnectionThread,pRecyconn);
+    if(err!=0){
+        return false;
+    }
+
+    ThreadItem* pSendQueue;
+    m_threadVector.push_back(pSendQueue = new ThreadItem(this));
+    err = pthread_create(&pSendQueue->_Handle, NULL, ServerSendQueueThread, pSendQueue);
+    if (err != 0) {
+        zhy_log_stderr(0, "CSocket::Initialize_subproc()中pthread_create(ServerRecyConnectionThread)失败.");
+        return false;
+    }
+
+    return true;
+}
+
+void CSocket::Shutdown_subproc(){
+    //让ServerSendQueueThread流程走下来干活
+    if (sem_post(&m_semEventSendQueue) == -1) {
+        zhy_log_stderr(0, "CSocket::Shutdown_subproc()中sem_post(&m_semEventSendQueue)失败.");
+    }
+    std::vector<ThreadItem*>::iterator iter;
+    for (iter = m_threadVector.begin(); iter != m_threadVector.end(); iter++) {
+        pthread_join((*iter)->_Handle, NULL);
+    }
+    for (iter = m_threadVector.begin(); iter != m_threadVector.end(); iter++) {
+        if (*iter)
+            delete *iter;
+    }
+    std::vector<ThreadItem*>().swap(m_threadVector);
+
+    this->clearMsgSendQueue();
+    this->clearConnection();
+
+    pthread_mutex_destroy(&m_connectionMutex);
+    pthread_mutex_destroy(&m_sendMessageQueueMutex);
+    pthread_mutex_destroy(&m_recyconnqueueMutex);
+    sem_destroy(&m_semEventSendQueue);
+    return;
+}
+
+void CSocket::ReadConf(){
+    CConfig* p_config=CConfig::getInstance();
+    m_worker_connections=p_config->GetIntDefault("worker_connections",m_worker_connections);
+    m_ListenPortCount=p_config->GetIntDefault("ListenPortCount",m_ListenPortCount);
+}
 
 
 //监听端口
@@ -98,12 +204,6 @@ void CSocket::zhy_close_listening_sockets(){
     }
     return;
 }    
-void CSocket::ReadConf(){
-    CConfig* p_config=CConfig::getInstance();
-    m_worker_connections=p_config->GetIntDefault("worker_connections",m_worker_connections);
-    m_ListenPortCount=p_config->GetIntDefault("ListenPortCount",m_ListenPortCount);
-
-}
 
 
 int CSocket::zhy_epoll_init(){
@@ -226,7 +326,7 @@ int CSocket::zhy_epoll_process_events(int timer){
                     EPOLLHUP:连接被挂起
                     EPOLLRDHUP:TCP连接远端关闭或半关闭连接
                 */
-                --p_Conn->iThrowsendCount;
+                --p_Conn->iThrowsendCount;      //可写事件数-1
             }else{
                 //数据没有发送完毕
                 (this->*(p_Conn->whandler))(p_Conn);
@@ -236,7 +336,34 @@ int CSocket::zhy_epoll_process_events(int timer){
 }
 
 void CSocket::sendMsg(char* sendbuf){
+    CMemory* p_memory=CMemory::GetInstance();
+    CLock lock(&m_sendMessageQueueMutex);
+
+    if(m_iSendMsgQueueCount>50000){
+        m_iDiscardSendPkgCount++;
+        p_memory->FreeMemory(sendbuf);
+        return;
+    }
+
+    LPSTRUC_MSG_HEADER pMsgHeader=(LPSTRUC_MSG_HEADER)sendbuf;
+    lpzhy_connection_t p_Conn=pMsgHeader->pConn;
+    if(p_Conn->iSendCount>400){
+        zhy_log_stderr(0, "CSocket::msgSend()中发现某用户%d积压了大量待发送数据包,切断与他的连接！", p_Conn->fd);
+        m_iDiscardSendPkgCount++;
+        p_memory->FreeMemory(sendbuf);
+        ClosesocketProc(p_Conn);
+        return;
+    }
+
+    ++p_Conn->iSendCount;
+    m_MsgSendQueue.push_back(sendbuf);
+    ++m_iSendMsgQueueCount;
     
+
+    if(sem_post(&m_semEventSendQueue)==-1){
+        zhy_log_stderr(0, "CSocket::msgSend()中sem_post(&m_semEventSendQueue)失败.");
+    }
+    return;
 }
 
 void CSocket::ClosesocketProc(lpzhy_connection_t p_Conn){
@@ -249,3 +376,4 @@ void CSocket::ClosesocketProc(lpzhy_connection_t p_Conn){
     
     return;
 }
+

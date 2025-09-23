@@ -9,8 +9,9 @@
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <vector>
-
+#include <memory>
 #include "zhy_comm.h"
+#include "zhy_threadpool.h"
 
 #define ZHY_LISTEN_BACKLOG 511   //全连接队列
 #define ZHY_MAX_EVENTS 512       //epoll_wait 一次最多接收数据
@@ -57,7 +58,7 @@ struct zhy_connection_s{
     pthread_mutex_t logicProcMutex;         //逻辑处理互斥量
 
     //发包相关
-    std::atomic<int> iThrowsendCount;       //发送缓冲区满了
+    std::atomic<int> iThrowsendCount;       //发送缓冲区满了，就是一个标志，标志增加了一个可写时间到epoll红黑树节点上，意味着数据未发完
     char* psendMemPointer;                  //发送完成后释放
     char* psendbuf;                         //发送数据的缓冲区的头指针
     unsigned int isendlen;                  //要发送多少数据
@@ -90,6 +91,8 @@ public:
 
     //Socket初始化
     virtual bool Initialize();
+    virtual bool Initialize_subproc();
+    virtual void Shutdown_subproc();
 
     //epoll操作
     int zhy_epoll_init();       //初始化
@@ -117,7 +120,7 @@ private:
     ssize_t recvproc(lpzhy_connection_t c,char* buff,ssize_t buflen);           //接收从客户端来的数据
     void zhy_wait_request_handler_proc_head(lpzhy_connection_t c,bool& isflood);//包头收完整后的处理
     void zhy_wait_request_handler_proc_total(lpzhy_connection_t c,bool& isflood);//收到一个完整包后的处理
-
+    
     void clearMsgSendQueue();                                           //清除发送队列
     ssize_t sendproc(lpzhy_connection_t c,char* buff,ssize_t size);     //发送数据到客户端
 
@@ -131,6 +134,13 @@ private:
     lpzhy_connection_t zhy_get_connection(int isock);
     void zhy_free_connection(lpzhy_connection_t c);
 
+    //收集待回收连接
+    void inRecyConnectQueue(lpzhy_connection_t pConn);      //将要延迟回收的连接加入延迟回收列表
+
+    //线程处理函数
+    static void* ServerSendQueueThread(void* threadData);      // 发送数据的线程
+    static void* ServerRecyConnectionThread(void* threadData); // 回收连接的线程
+    static void* ServerTimerQueueMonitorThread(void* threadData); // 时间队列监视线程，处理到期不发心跳包的用户
 protected:
     size_t m_iLenPkgHeader;         //sizeof(COMM_PKG_HEADER)  包头
     size_t m_iLenMsgHeader;         //sizeof(STRUC_MSG_HEADER) 消息头
@@ -138,10 +148,10 @@ private:
     struct ThreadItem
     {
         pthread_t _Handle;   // 线程句柄
-        CThreadPool *_pThis; // 线程池指针
+        CSocket *_pThis;    
         bool isrunning;      // 是否启动
 
-        ThreadItem(CThreadPool *pthis) : _pThis(pthis), isrunning(false) {}
+        ThreadItem(CSocket *pthis) : _pThis(pthis), isrunning(false) {}
         ~ThreadItem();
     }; // 对应单个线程
 
@@ -163,12 +173,18 @@ private:
 
     std::vector<ThreadItem*> m_threadVector;
     pthread_mutex_t m_sendMessageQueueMutex;
-    sem_t m_semEventSendQueue;
+    sem_t m_semEventSendQueue;                      //处理发消息线程相关的信号量
 
-    std::vector<lpzhy_connection_t> m_recyconnectionList;    //待释放的连接
+    std::list<lpzhy_connection_t> m_recyconnectionList;    //待释放的连接
     std::atomic<int> m_total_recyconnection_n;
+    int m_RecyConnectionWaitTime;                           //等待释放时间
+
+    pthread_mutex_t m_connectionMutex;          //连接互斥量
+    pthread_mutex_t m_recyconnqueueMutex;       //连接回收队列的互斥量
 
     //控制用户连接数
     std::atomic<int> m_onlineUserCount;
+
+    int m_iDiscardSendPkgCount;             //丢弃的发送数据包的数量
 };
 #endif

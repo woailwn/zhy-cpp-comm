@@ -185,6 +185,7 @@ ssize_t CSocket::sendproc(lpzhy_connection_t c,char* buff,ssize_t size){
 }
 
 //epoll通知的可写事件
+//1.有未发送完的数据        2.发送缓冲区有空间了
 void CSocket::zhy_write_request_handler(lpzhy_connection_t pConn){
     CMemory* p_memory=CMemory::GetInstance();
 
@@ -198,7 +199,7 @@ void CSocket::zhy_write_request_handler(lpzhy_connection_t pConn){
         zhy_log_stderr(errno,"CSocket::zhy_write_request_handler()时if(sendsize == -1)成立");
         return;
     }
-
+    
     if(sendsize>0 && sendsize==pConn->isendlen){
         if (zhy_epoll_oper_event(pConn->fd, EPOLL_CTL_MOD, EPOLLOUT, 1, pConn) == -1) { //1代表移除
             zhy_log_stderr(errno, "CSocket::zhy_write_request_handler()中zhy_epoll_oper_event()失败。");

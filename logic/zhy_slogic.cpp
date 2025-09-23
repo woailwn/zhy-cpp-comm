@@ -41,6 +41,7 @@ static const handler statusHandler[]={
     &CLogicSocket::_HandleLogIn,    //[6] 登录
 };
 
+#define AUTH_TOTAL_COMMANDS sizeof(statusHandler)/sizeof(handler)   //逻辑个数
 CLogicSocket::CLogicSocket(){}
 
 CLogicSocket::~CLogicSocket(){}
@@ -65,6 +66,49 @@ bool CLogicSocket::_HandlePing(lpzhy_connection_t pConn, LPSTRUC_MSG_HEADER pMsg
 
 }
 
+//处理收到的数据包
 void CLogicSocket::threadRecvProcFunc(char *pMsgBuf){
+    LPSTRUC_MSG_HEADER pMsgHeader=(LPSTRUC_MSG_HEADER)pMsgBuf;
+    LPCOMM_PKG_HEADER pPkgHeader=(LPCOMM_PKG_HEADER)(pMsgBuf+m_iLenMsgHeader);
+    void* pPkgBody=NULL;
+    unsigned short pkgLen=ntohs(pPkgHeader->pkgLen);
 
+    //获得包体，校验
+    if(m_iLenMsgHeader==pkgLen){        //只有包头
+            if(pPkgHeader->crc32!=0){
+                //包头crc=0
+                return;
+            }
+            pPkgBody=NULL;
+    }else{
+        pPkgHeader->crc32=ntohl(pPkgHeader->crc32);
+        pPkgBody=(void*)(pMsgBuf+m_iLenMsgHeader+m_iLenPkgHeader);
+
+        //包体校验
+        int calcrc=CCRC32::GetInstance()->Get_CRC((unsigned char*)pPkgBody,pkgLen-m_iLenPkgHeader);
+        if (calcrc != pPkgHeader->crc32) {
+            zhy_log_stderr(0, "CLogicSocket::threadRecvProcFunc()中CRC错误，丢弃数据!");
+            return;
+        }
+    }
+
+    unsigned short imsgCode=ntohs(pPkgHeader->msgCode);
+    lpzhy_connection_t p_Conn=pMsgHeader->pConn;
+
+    if(p_Conn->iCurrsequence!=pMsgHeader->isCurrsequence){
+        return;
+    }
+
+    //过滤恶意包
+    if(imsgCode>=AUTH_TOTAL_COMMANDS){
+        zhy_log_stderr(0, "CLogicSocket::threadRecvProcFunc()中imsgCode=%d消息码不对!", imsgCode);
+        return;
+    }
+    if(statusHandler[imsgCode]==NULL){
+        zhy_log_stderr(0, "CLogicSocket::threadRecvProcFunc()中imsgCode=%d消息码找不到对应的处理函数!", imsgCode);
+        return;
+    }
+
+    (this->*statusHandler[imsgCode])(p_Conn,pMsgHeader,(char*)pPkgBody,pkgLen-m_iLenPkgHeader);
+    return;
 }

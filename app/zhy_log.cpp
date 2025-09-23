@@ -15,18 +15,18 @@
 #include "zhy_macro.h"
 //zhy_log_stderr(err,fmt,"...",...)
 //zhy_log_stderr(0,"invalid option: %s , %d","testInfo",326)
-zhy_log_t zhy_log; //?ùùùù?ùù?
+zhy_log_t zhy_log; //?????????
 
 static char err_levels[][20] = {
-    {"stderr"}, // 0ùùùùùù?ùùùù
-    {"emerg"},  // 1ùùùùùù
-    {"alert"},  // 2ùùùùùù
-    {"crit"},   // 3ùùùùùù
-    {"error"},  // 4ùùùùùù
-    {"warn"},   // 5ùùùùùù
-    {"notice"}, // 6ùù?ùù
-    {"info"},   // 7ùùùù?
-    {"debug"}   // 8ùùùùùù
+    {"stderr"}, // 0???????????
+    {"emerg"},  // 1??????
+    {"alert"},  // 2??????
+    {"crit"},   // 3??????
+    {"error"},  // 4??????
+    {"warn"},   // 5??????
+    {"notice"}, // 6?????
+    {"info"},   // 7?????
+    {"debug"}   // 8??????
 };
 
 void zhy_log_stderr(int err,const char* fmt,...)
@@ -35,8 +35,8 @@ void zhy_log_stderr(int err,const char* fmt,...)
     char errstr[ZHY_MAX_ERROR_STR+1];
     char* p,*last;
     memset(errstr,0,sizeof(errstr));
-
-    last=errstr+ZHY_MAX_ERROR_STR;  //?ùùùùù?ùùùù??ùù
+    
+    last=errstr+ZHY_MAX_ERROR_STR;  //???????????????
     p=zhy_memcpy(errstr,"ZhyNginx: ",10);
 
     va_start(args,fmt);
@@ -55,7 +55,7 @@ void zhy_log_stderr(int err,const char* fmt,...)
     write(STDERR_FILENO,errstr,p-errstr);
     if(zhy_log.fd>STDERR_FILENO)
     {
-        //ùùùù?ù?ù
+        //????????
         err=0;
         p--;
         *p=0;
@@ -64,24 +64,24 @@ void zhy_log_stderr(int err,const char* fmt,...)
     return;
 }
 
-//?ùù?ù?ù
+//???????
 void zhy_log_error_core(int level,int err,const char* fmt,...){
     char* last;
     char errstr[ZHY_MAX_ERROR_STR+1];
     memset(errstr,0,sizeof(errstr));
 
     last=errstr+ZHY_MAX_ERROR_STR;
-    struct timeval tv;  //ùùù?ùù
-    struct tm tm; //ùùùù?ùù
+    struct timeval tv;  //??????
+    struct tm tm; //???????
     time_t sec;
     char* p;
     va_list args;
     memset(&tv,0,sizeof(struct timeval));
     memset(&tm,0,sizeof(struct tm));
-    gettimeofday(&tv,NULL); //ùù?ùù??ù?s+ms
+    gettimeofday(&tv,NULL); //?????????s+ms
     sec=tv.tv_sec;
-    localtime_r(&sec,&tm); //ùùùù?ùù
-    tm.tm_mon++;    //ù∑?ù0ùù?
+    localtime_r(&sec,&tm); //???????
+    tm.tm_mon++;    //????0???
     tm.tm_year+=1900;
     
     char timestr[40]={0};
@@ -107,12 +107,12 @@ void zhy_log_error_core(int level,int err,const char* fmt,...){
 
     ssize_t n;
     do{
-        //?ùùºù?ù?ùù
+        //??????????
         if(level>zhy_log.level){
             break;
         }
 
-        //?ùù?ù?ù
+        //???????
         n=write(zhy_log.fd,errstr,p-errstr);
         if(n==-1){
             if(errno==ENOSPC){
@@ -126,12 +126,12 @@ void zhy_log_error_core(int level,int err,const char* fmt,...){
     return;
 }
 
-//ù?ùùùùùù?ùùùùùù?
+//????????????????
 char* zhy_log_errno(char* buf, char* last, int err){
     char*  errorinfo=strerror(err);
     size_t len=strlen(errorinfo);
 
-    //ùùùùùù??
+    //????????
     char lstr[10]={0};
     sprintf(lstr," (%d: ",err);
     size_t llen=strlen(lstr);
@@ -148,7 +148,7 @@ char* zhy_log_errno(char* buf, char* last, int err){
     return buf;
 }
 
-//ùù?ùùùù?ù?ù
+//???????????
 void zhy_log_init(){
     char* log_filename=NULL;
     
@@ -158,13 +158,13 @@ void zhy_log_init(){
         log_filename=(char*)ZHY_ERROR_LOG_PATH;
     }
 
-    //??ùù?ù?ù
+    //????????
     zhy_log.level=p_config->GetIntDefault("LogLevel",ZHY_LOG_NOTICE);
 
     zhy_log.fd=open((const char*)log_filename,O_WRONLY|O_APPEND|O_CREAT,0644);
     if(zhy_log.fd==-1){
         zhy_log_stderr(errno,"[alert] could not open error log to log file:open() \"%s\" failed",log_filename);
-        zhy_log.fd=STDERR_FILENO; //ùù?ùùùùùùù
+        zhy_log.fd=STDERR_FILENO; //??????????
     }
     return;
 }

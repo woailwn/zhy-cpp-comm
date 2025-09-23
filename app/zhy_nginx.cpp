@@ -12,6 +12,7 @@
 #include "zhy_global.h"
 #include "zhy_macro.h"
 #include "zhy_threadpool.h"
+#include "zhy_slogic.h"
 char** g_os_argv;         // 原始命令行参数数组
 int g_os_argc;            // 启动参数个数
 size_t g_argvneedmem = 0; // 启动参数内存大小
@@ -24,6 +25,7 @@ int g_daemonize=0;        //是否以守护进程方式运行
 int zhy_process;      // 进程类型
 
 CThreadPool g_threadpool;   //线程池
+CLogicSocket g_socket;    // 全局 socket 管理
 
 sig_atomic_t hps_reap;    //标识子进程状态变化
 int main(int argc,char* argv[]){

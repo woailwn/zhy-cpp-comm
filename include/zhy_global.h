@@ -1,7 +1,7 @@
 #ifndef __ZHY_GLOBAL_H__
 #define __ZHY_GLOBAL_H__
 #include <signal.h>
-
+#include "zhy_slogic.h"
 
 //配置项
 typedef struct ConfItem{
@@ -22,6 +22,8 @@ extern size_t g_argvneedmem;     // 启动参数内存大小
 extern char* gp_envmem;          // 环境变量内存新位置
 extern int g_daemonize;          // 是否开启守护进程
 extern CThreadPool g_threadpool; // 线程池
+extern CLogicSocket g_socket;     //全局socket
+extern int g_stopEvent;          
 
 extern pid_t zhy_pid;         // 当前进程 id
 extern pid_t zhy_parent;      // 当前进程父进程id

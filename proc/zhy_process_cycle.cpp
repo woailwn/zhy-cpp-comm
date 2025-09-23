@@ -110,6 +110,8 @@ static void zhy_worker_process_cycle(int inum, const char* pprocname){
     }
     
     //回收资源
+    g_threadpool.StopAll();
+    g_socket.Shutdown_subproc();
     return;
 }
 
@@ -123,5 +125,14 @@ static void zhy_worker_process_init(int inum){
         zhy_log_error_core(ZHY_LOG_ALERT,errno,"zhy_worker_process_init()中sigprocmask()失败！");
     }
 
-    //...
+    //线程池
+    CConfig* p_config=CConfig::getInstance();
+    int tmpthreadsnums=p_config->GetIntDefault("ProMsgRecvWorkThreadCount",5);
+    if(g_threadpool.Create(tmpthreadsnums)==false){
+        exit(-2);
+    }
+    if(g_socket.Initialize_subproc()==false){
+        exit(-2);
+    }
+    g_socket.zhy_epoll_init();
 }

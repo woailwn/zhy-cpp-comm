@@ -18,6 +18,7 @@
 typedef struct _COMM_PKG_HEADER{
     unsigned short pkgLen; //包头+包体总长
     unsigned short msgCode; //消息类型
+    int crc32;              //crc32校验
 }COMM_PKG_HEADER,*LPCOMM_PKG_HEADER;
 
 #pragma pack()
