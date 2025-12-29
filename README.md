@@ -1,12 +1,12 @@
-各文件作用
-app:        应用程序入口及核心逻辑
-include:    公共头文件
-logic:      业务逻辑模块
-misc:       辅助工具模块
-net:        网络通信模块
-proc:       进程管理模块
-signal:     信号处理模块
-nginx.conf: 配置文件
-Makefile:   构建脚本
-common.mk:  公共构建配置
-config.mk:  配置构建参数
+鍚勬枃浠朵綔鐢╘n
+app:        搴旂敤绋嬪簭鍏ュ彛鍙婃牳蹇冮�昏緫\n
+include:    鍏叡澶存枃浠禱n
+logic:      涓氬姟閫昏緫妯″潡\n
+misc:       杈呭姪宸ュ叿妯″潡\n
+net:        缃戠粶閫氫俊妯″潡\n
+proc:       杩涚▼绠＄悊妯″潡\n
+signal:     淇″彿澶勭悊妯″潡\n
+nginx.conf: 閰嶇疆鏂囦欢\n
+Makefile:   鏋勫缓鑴氭湰\n
+common.mk:  鍏叡鏋勫缓閰嶇疆\n
+config.mk:  閰嶇疆鏋勫缓鍙傛暟\n
